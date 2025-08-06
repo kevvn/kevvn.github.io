@@ -1,0 +1,8 @@
+{
+  "name": "Simple React PWA",
+  "short_name": "ReactPWA",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "description": "A minimal React progressive web app."
+}
