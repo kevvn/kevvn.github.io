@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebRTC Demo</title>
+  <style>
+    video {
+      width: 45%;
+    }
+    textarea {
+      width: 90%;
+      height: 6rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebRTC Communication Demo</h1>
+  <div>
+    <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+  <div>
+    <button id="startBtn">Start Camera</button>
+    <button id="createOfferBtn" disabled>Create Offer</button>
+    <button id="createAnswerBtn">Create Answer</button>
+    <button id="applyAnswerBtn">Apply Answer</button>
+  </div>
+  <div>
+    <h2>Offer</h2>
+    <textarea id="offer" placeholder="Local offer will appear here"></textarea>
+  </div>
+  <div>
+    <h2>Answer</h2>
+    <textarea id="answer" placeholder="Paste remote answer here"></textarea>
+  </div>
+  <script src="webrtc.js"></script>
+</body>
+</html>
