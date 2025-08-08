@@ -8,6 +8,7 @@ function App() {
   const [channel, setChannel] = useState(null);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
+  const [isChannelOpen, setIsChannelOpen] = useState(false);
 
   const start = () => {
     const newPc = new RTCPeerConnection({
@@ -17,12 +18,16 @@ function App() {
     dc.onmessage = (event) => {
       setMessages((prev) => [...prev, `Remote: ${event.data}`]);
     };
+    dc.onopen = () => setIsChannelOpen(true);
+    dc.onclose = () => setIsChannelOpen(false);
     setChannel(dc);
     newPc.ondatachannel = (event) => {
       const c = event.channel;
       c.onmessage = (ev) => {
         setMessages((prev) => [...prev, `Remote: ${ev.data}`]);
       };
+      c.onopen = () => setIsChannelOpen(true);
+      c.onclose = () => setIsChannelOpen(false);
       setChannel(c);
     };
     newPc.onicecandidate = (event) => {
@@ -34,7 +39,7 @@ function App() {
   };
 
   const sendMessage = () => {
-    if (channel && message) {
+    if (channel && channel.readyState === 'open' && message) {
       channel.send(message);
       setMessages((prev) => [...prev, `Local: ${message}`]);
       setMessage('');
@@ -99,7 +104,7 @@ function App() {
           placeholder: 'Type JSON message',
           style: { width: '80%', marginRight: '10px' },
         }),
-        React.createElement('button', { onClick: sendMessage, disabled: !channel }, 'Send')
+        React.createElement('button', { onClick: sendMessage, disabled: !channel || !isChannelOpen }, 'Send')
       )
     )
   );
