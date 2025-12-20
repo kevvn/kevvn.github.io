@@ -13,6 +13,9 @@ const MatchHeatmap = ({ positions }) => {
       // Configure: radius, blur
       heatRef.current.radius(20, 15);
 
+      // Set max data value (1 means a single detection is "hot")
+      heatRef.current.max(1);
+
       // Configure gradient colors (optional override)
       // heatRef.current.gradient({0.4: 'blue', 0.6: 'cyan', 0.7: 'lime', 0.8: 'yellow', 1.0: 'red'});
     }

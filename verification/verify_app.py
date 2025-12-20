@@ -1,3 +1,4 @@
+
 from playwright.sync_api import sync_playwright
 
 def verify_app():
@@ -5,21 +6,42 @@ def verify_app():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        # Navigate to the app (default Vite port)
-        page.goto("http://localhost:5173")
+        # Capture console logs
+        page.on("console", lambda msg: print(f"[{msg.type}] {msg.text}"))
+        page.on("pageerror", lambda err: print(f"[PAGE ERROR] {err}"))
 
-        # Wait for the "Load Test Image" button and click it to trigger the test mode
-        # This will load the static image and run the CV logic
-        page.wait_for_selector("button:has-text('Load Test Image')")
-        page.click("button:has-text('Load Test Image')")
+        try:
+            print("Navigating...")
+            page.goto("http://localhost:5173", timeout=10000)
 
-        # Wait a moment for the canvas/heatmap to render
-        page.wait_for_timeout(2000)
+            # Wait for any potential js load
+            page.wait_for_timeout(2000)
 
-        # Take a screenshot
-        page.screenshot(path="verification/verification.png")
+            print(f"Page title: {page.title()}")
 
-        browser.close()
+            # Check if root has children
+            root_html = page.inner_html("#root")
+            print(f"Root HTML: {root_html}")
+
+            # Wait for header to appear
+            print("Waiting for header...")
+            page.wait_for_selector("header", timeout=5000)
+
+            print("Clicking 'Run Test Mode'...")
+            page.get_by_role("button", name="Run Test Mode").click(timeout=5000)
+
+            print("Waiting for test image confirmation...")
+            page.wait_for_selector("text=Test Image Loaded:", timeout=10000)
+
+            # Take final screenshot
+            page.screenshot(path="verification/verification.png")
+            print("Screenshot saved to verification/verification.png")
+
+        except Exception as e:
+            print(f"Error: {e}")
+            page.screenshot(path="verification/error_state.png")
+        finally:
+            browser.close()
 
 if __name__ == "__main__":
     verify_app()

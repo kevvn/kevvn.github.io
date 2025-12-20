@@ -1,97 +1,92 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import StreamCapture from './components/StreamCapture';
 import MatchHeatmap from './components/MatchHeatmap';
-import { extractMinimapROI, detectPlayers, isCvLoaded } from './utils/cvProcessors';
+import Dashboard from './components/Dashboard';
+import { detectPlayers, extractMoneyText } from './utils/cvProcessors';
+import Tesseract from 'tesseract.js';
 
 function App() {
-  const [positions, setPositions] = useState([]);
-  const [cvReady, setCvReady] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  const [players, setPlayers] = useState([]);
+  const [economy, setEconomy] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [debugImage, setDebugImage] = useState(null);
 
-  // Polling to check if OpenCV is loaded
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-      if (isCvLoaded()) {
-        setCvReady(true);
-        clearInterval(timer);
-      }
-    }, 500);
-    return () => clearInterval(timer);
-  }, []);
+  // Throttle OCR
+  const lastOcrTime = useRef(0);
 
-  const handleFrame = useCallback((canvas) => {
-    if (!cvReady) return;
+  const processFrame = async (canvas) => {
+    if (isProcessing) return; // Prevent overlapping frames if processing is slow
+    setIsProcessing(true);
 
     try {
-      // 1. Extract Minimap ROI
-      const minimapMat = extractMinimapROI(canvas);
-
-      if (minimapMat) {
-        // 2. Detect Players
-        const foundPlayers = detectPlayers(minimapMat);
-
-        // 3. Update Heatmap State
-        // Only update if we found players to avoid unnecessary re-renders or empty data
-        if (foundPlayers.length > 0) {
-            setPositions(foundPlayers);
-        }
-
-        // Cleanup Mat
-        minimapMat.delete();
+      // 1. Detect Players (Fast, every frame or every few frames)
+      const currentPlayers = detectPlayers(canvas);
+      if (currentPlayers.length > 0) {
+        console.log("Players Detected:", JSON.stringify(currentPlayers));
+        setPlayers(currentPlayers);
+      } else {
+        console.log("No players detected.");
       }
-    } catch (e) {
-      console.error("CV Processing Error:", e);
-    }
-  }, [cvReady]);
 
-  // Test Mode Handler
-  const handleTestImage = () => {
-    if (!cvReady) return;
-    const img = new Image();
-    img.src = '/test_frame.jpg'; // We will create this file in the next step
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        handleFrame(canvas);
-        setDebugMode(true);
-    };
+      // 2. OCR (Slow, run once every second)
+      const now = Date.now();
+      if (now - lastOcrTime.current > 1000) {
+        lastOcrTime.current = now;
+        const moneyImage = extractMoneyText(canvas);
+
+        const { data: { text } } = await Tesseract.recognize(moneyImage, 'eng', {
+           // logger: m => console.log(m)
+        });
+
+        const moneyVal = text.replace(/[^0-9]/g, '');
+        if (moneyVal) setEconomy(moneyVal);
+      }
+
+    } catch (e) {
+      console.error("Processing Error", e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTestMode = () => {
+     const img = new Image();
+     img.src = '/test_frame.jpg';
+     img.onload = () => {
+         const canvas = document.createElement('canvas');
+         canvas.width = img.width;
+         canvas.height = img.height;
+         const ctx = canvas.getContext('2d');
+         ctx.drawImage(img, 0, 0);
+         setDebugImage(canvas.toDataURL());
+         processFrame(canvas);
+     };
   };
 
   return (
-    <div className="app-container" style={{ padding: '20px' }}>
-      <h1>Valorant Live Tracker</h1>
-
-      <div className="status-bar" style={{ marginBottom: '20px' }}>
-        <span style={{ color: cvReady ? 'lightgreen' : 'orange' }}>
-            OpenCV: {cvReady ? 'Ready' : 'Loading...'}
-        </span>
-        <button
-            onClick={handleTestImage}
-            disabled={!cvReady}
-            style={{ marginLeft: '20px' }}
-        >
-            Load Test Image
+    <div className="App" style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
+      <header style={{ padding: '20px', background: '#333', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1 style={{ margin: 0 }}>Valorant Stream Analyzer</h1>
+        <button onClick={handleTestMode} style={{ background: '#007bff', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer' }}>
+            Run Test Mode
         </button>
-      </div>
+      </header>
 
-      <div className="main-layout" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-        <div className="capture-section">
-            <StreamCapture onFrame={handleFrame} />
-        </div>
-
-        <div className="visualization-section">
-            <MatchHeatmap positions={positions} />
-            {positions.length > 0 && (
-                <div style={{ marginTop: '10px' }}>
-                    <p>Detected Entities: {positions.length}</p>
-                    {debugMode && (
-                        <small>Last Coordinates: {JSON.stringify(positions.slice(0, 3))}...</small>
-                    )}
+      <div className="main-content" style={{ display: 'flex', flex: 1, padding: '20px', gap: '20px' }}>
+        <div className="left-panel" style={{ flex: 2 }}>
+            <h2>Live Feed</h2>
+            <StreamCapture onFrame={processFrame} />
+            {debugImage && (
+                <div style={{ marginTop: '20px' }}>
+                    <h3>Test Image Loaded:</h3>
+                    <img src={debugImage} alt="Debug" style={{ maxWidth: '100%', border: '2px solid red' }} />
                 </div>
             )}
+        </div>
+
+        <div className="right-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <MatchHeatmap players={players} />
+            <Dashboard economy={economy} />
         </div>
       </div>
     </div>

@@ -1,135 +1,120 @@
-// cvProcessors.js
+// ROI Constants (Approximations for 1080p standard layout)
+// These would ideally be calibrated or detected dynamically.
+// Minimap is usually top-left.
+const MINIMAP_ROI = { x: 20, y: 20, width: 300, height: 300 };
+// Money/Buy text is usually mid-bottom or right side depending on UI state.
+const MONEY_ROI = { x: 1500, y: 900, width: 200, height: 100 };
 
 /**
- * Checks if OpenCV is loaded
- */
-export const isCvLoaded = () => {
-  return typeof cv !== 'undefined' && cv.Mat;
-};
-
-/**
- * Standard Esports HUD Minimap Coordinates (Normalized 0.0 - 1.0)
- * These are approximations for a standard 1080p stream.
- * In a real app, we might need dynamic calibration or user adjustment.
- *
- * Assuming Top Left minimap:
- * x: ~20px, y: ~20px, w: ~300px, h: ~300px on a 1920x1080 canvas
- */
-const MINIMAP_ROI = {
-  x: 25 / 1920,
-  y: 25 / 1080,
-  w: 300 / 1920,
-  h: 300 / 1080
-};
-
-/**
- * Extracts the minimap region from the full source image
- * @param {HTMLCanvasElement} sourceCanvas - The full frame canvas
- * @returns {cv.Mat} The cropped minimap Mat (must be deleted by caller)
+ * Extracts the minimap region from the full frame canvas.
+ * @param {HTMLCanvasElement} sourceCanvas
+ * @returns {ImageData} The pixel data of the minimap.
  */
 export const extractMinimapROI = (sourceCanvas) => {
-  if (!isCvLoaded()) return null;
-
-  const src = cv.imread(sourceCanvas);
-  const width = src.cols;
-  const height = src.rows;
-
-  const x = Math.floor(MINIMAP_ROI.x * width);
-  const y = Math.floor(MINIMAP_ROI.y * height);
-  const w = Math.floor(MINIMAP_ROI.w * width);
-  const h = Math.floor(MINIMAP_ROI.h * height);
-
-  const rect = new cv.Rect(x, y, w, h);
-  const roi = src.roi(rect);
-
-  // Cleanup source mat immediately as we only need the ROI
-  src.delete();
-
-  return roi;
+  const ctx = sourceCanvas.getContext('2d');
+  return ctx.getImageData(MINIMAP_ROI.x, MINIMAP_ROI.y, MINIMAP_ROI.width, MINIMAP_ROI.height);
 };
 
 /**
- * Detects player positions on the minimap
- * @param {cv.Mat} minimapMat - The cropped minimap Mat
- * @returns {Array<{x: number, y: number, team: string}>} Array of detected positions
+ * Detects players on the minimap using OpenCV.js
+ * @param {HTMLCanvasElement} sourceCanvas
+ * @returns {Array<{x: number, y: number, team: 'enemy'|'ally'}>} List of detected player positions relative to the minimap
  */
-export const detectPlayers = (minimapMat) => {
-  if (!minimapMat) return [];
-
-  const players = [];
-  const dst = new cv.Mat();
-
-  // Convert to HSV for better color segmentation
-  cv.cvtColor(minimapMat, dst, cv.COLOR_RGBA2RGB);
-  cv.cvtColor(dst, dst, cv.COLOR_RGB2HSV);
-
-  // Define ranges for Attackers (Redish) and Defenders (Cyan/Greenish)
-  // Note: OpenCV HSV ranges are H: 0-179, S: 0-255, V: 0-255
-
-  // Red Mask (handling wrap-around for red)
-  const lowRed1 = new cv.Mat(dst.rows, dst.cols, dst.type(), [0, 100, 100, 0]);
-  const highRed1 = new cv.Mat(dst.rows, dst.cols, dst.type(), [10, 255, 255, 0]);
-  const lowRed2 = new cv.Mat(dst.rows, dst.cols, dst.type(), [160, 100, 100, 0]);
-  const highRed2 = new cv.Mat(dst.rows, dst.cols, dst.type(), [180, 255, 255, 0]);
-
-  const maskRed1 = new cv.Mat();
-  const maskRed2 = new cv.Mat();
-  const maskRed = new cv.Mat();
-
-  cv.inRange(dst, lowRed1, highRed1, maskRed1);
-  cv.inRange(dst, lowRed2, highRed2, maskRed2);
-  cv.bitwise_or(maskRed1, maskRed2, maskRed);
-
-  // Find Contours for Red
-  findAndAddPlayers(maskRed, players, 'attacker', minimapMat.cols, minimapMat.rows);
-
-  // Cyan Mask (Defenders) ~ H: 80-100? Need to tune this.
-  // Standard Cyan is around 90 in OpenCV scale (180 deg)
-  const lowCyan = new cv.Mat(dst.rows, dst.cols, dst.type(), [75, 100, 100, 0]);
-  const highCyan = new cv.Mat(dst.rows, dst.cols, dst.type(), [105, 255, 255, 0]);
-  const maskCyan = new cv.Mat();
-
-  cv.inRange(dst, lowCyan, highCyan, maskCyan);
-
-  // Find Contours for Cyan
-  findAndAddPlayers(maskCyan, players, 'defender', minimapMat.cols, minimapMat.rows);
-
-  // Cleanup
-  dst.delete();
-  lowRed1.delete(); highRed1.delete(); lowRed2.delete(); highRed2.delete();
-  maskRed1.delete(); maskRed2.delete(); maskRed.delete();
-  lowCyan.delete(); highCyan.delete(); maskCyan.delete();
-
-  return players;
-};
-
-const findAndAddPlayers = (mask, list, team, width, height) => {
-  const contours = new cv.MatVector();
-  const hierarchy = new cv.Mat();
-
-  cv.findContours(mask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-  for (let i = 0; i < contours.size(); ++i) {
-    const contour = contours.get(i);
-    const area = cv.contourArea(contour);
-
-    // Filter small noise or large blocks (UI elements)
-    if (area > 10 && area < 500) {
-      const moments = cv.moments(contour);
-      const cx = moments.m10 / moments.m00;
-      const cy = moments.m01 / moments.m00;
-
-      // Normalize to 0-1 relative to minimap size
-      list.push({
-        x: cx / width,
-        y: cy / height,
-        team
-      });
+export const detectPlayers = (sourceCanvas) => {
+    // Ensure OpenCV is loaded
+    if (typeof cv === 'undefined') {
+        console.log("OpenCV not loaded yet.");
+        return [];
     }
-    // IMPORTANT: Delete the specific contour Mat to prevent memory leaks
-    contour.delete();
-  }
 
-  contours.delete();
-  hierarchy.delete();
+    const positions = [];
+
+    // Create Mat from the minimap region directly
+    let src = cv.imread(sourceCanvas);
+
+    console.log("Image size:", src.cols, src.rows);
+
+    // Define ROI
+    let rect = new cv.Rect(MINIMAP_ROI.x, MINIMAP_ROI.y, MINIMAP_ROI.width, MINIMAP_ROI.height);
+    console.log("ROI:", rect.x, rect.y, rect.width, rect.height);
+
+    // Check bounds
+    if (rect.x + rect.width > src.cols || rect.y + rect.height > src.rows) {
+        console.log("ROI out of bounds!");
+        src.delete();
+        return [];
+    }
+
+    let dst = src.roi(rect);
+    let hsv = new cv.Mat();
+    cv.cvtColor(dst, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+
+    // Define Red Color Range (Enemy) - Red wraps around in HSV
+    // Lower red
+    let lowerRed1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [0, 100, 100, 0]);
+    let upperRed1 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [10, 255, 255, 0]);
+    // Upper red
+    let lowerRed2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [170, 100, 100, 0]);
+    let upperRed2 = new cv.Mat(hsv.rows, hsv.cols, hsv.type(), [180, 255, 255, 0]);
+
+    let mask1 = new cv.Mat();
+    let mask2 = new cv.Mat();
+    let maskFinal = new cv.Mat();
+
+    cv.inRange(hsv, lowerRed1, upperRed1, mask1);
+    cv.inRange(hsv, lowerRed2, upperRed2, mask2);
+    cv.addWeighted(mask1, 1.0, mask2, 1.0, 0.0, maskFinal);
+
+    // Find Contours
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+    cv.findContours(maskFinal, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+    console.log("Contours found:", contours.size());
+
+    for (let i = 0; i < contours.size(); ++i) {
+        let contour = contours.get(i);
+        let area = cv.contourArea(contour);
+        console.log("Contour", i, "Area:", area);
+
+        // Filter noise
+        if (area > 10 && area < 500) {
+            let moments = cv.moments(contour, false);
+            let cx = moments.m10 / moments.m00;
+            let cy = moments.m01 / moments.m00;
+
+            // Normalize coordinates (0.0 to 1.0)
+            // rect.width and rect.height are the dimensions of the ROI (300x300)
+            let normalizedX = cx / rect.width;
+            let normalizedY = cy / rect.height;
+
+            positions.push({ x: normalizedX, y: normalizedY, team: 'enemy' });
+        }
+    }
+
+    // Cleanup OpenCV objects
+    src.delete(); dst.delete(); hsv.delete();
+    lowerRed1.delete(); upperRed1.delete();
+    lowerRed2.delete(); upperRed2.delete();
+    mask1.delete(); mask2.delete(); maskFinal.delete();
+    contours.delete(); hierarchy.delete();
+
+    return positions;
 };
+
+/**
+ * Extract image data for OCR
+ */
+export const extractMoneyText = (sourceCanvas) => {
+    const ctx = sourceCanvas.getContext('2d');
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = MONEY_ROI.width;
+    tempCanvas.height = MONEY_ROI.height;
+    const tCtx = tempCanvas.getContext('2d');
+    tCtx.drawImage(sourceCanvas,
+        MONEY_ROI.x, MONEY_ROI.y, MONEY_ROI.width, MONEY_ROI.height,
+        0, 0, MONEY_ROI.width, MONEY_ROI.height
+    );
+    return tempCanvas.toDataURL('image/png');
+}
