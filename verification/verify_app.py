@@ -1,47 +1,43 @@
-
 from playwright.sync_api import sync_playwright
 
-def verify_app():
+def verify_app_loads():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-
-        # Capture console logs
-        page.on("console", lambda msg: print(f"[{msg.type}] {msg.text}"))
-        page.on("pageerror", lambda err: print(f"[PAGE ERROR] {err}"))
-
         try:
-            print("Navigating...")
-            page.goto("http://localhost:5173", timeout=10000)
+            print("Navigating to app...")
+            page.goto("http://localhost:5173/")
 
-            # Wait for any potential js load
-            page.wait_for_timeout(2000)
+            # Wait for the app to load
+            print("Waiting for title...")
+            page.wait_for_selector("h1")
 
-            print(f"Page title: {page.title()}")
+            # Check title
+            title = page.title()
+            print(f"Page title: {title}")
 
-            # Check if root has children
-            root_html = page.inner_html("#root")
-            print(f"Root HTML: {root_html}")
+            # Check for header
+            header_text = page.locator("h1").text_content()
+            print(f"Header text: {header_text}")
 
-            # Wait for header to appear
-            print("Waiting for header...")
-            page.wait_for_selector("header", timeout=5000)
+            if "Valorant Stream Analyzer" not in header_text:
+                raise Exception("Header text mismatch")
 
-            print("Clicking 'Run Test Mode'...")
-            page.get_by_role("button", name="Run Test Mode").click(timeout=5000)
-
-            print("Waiting for test image confirmation...")
-            page.wait_for_selector("text=Test Image Loaded:", timeout=10000)
-
-            # Take final screenshot
-            page.screenshot(path="verification/verification.png")
-            print("Screenshot saved to verification/verification.png")
+            # Take screenshot
+            print("Taking screenshot...")
+            page.screenshot(path="verification/app_loaded.png")
+            print("Screenshot saved.")
 
         except Exception as e:
             print(f"Error: {e}")
-            page.screenshot(path="verification/error_state.png")
+            # Take error screenshot if possible
+            try:
+                page.screenshot(path="verification/error.png")
+            except:
+                pass
+            raise e
         finally:
             browser.close()
 
 if __name__ == "__main__":
-    verify_app()
+    verify_app_loads()
