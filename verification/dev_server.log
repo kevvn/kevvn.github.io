@@ -1,0 +1,52 @@
+
+> valorant-live-tracker@0.0.0 dev
+> vite
+
+
+  VITE v4.5.14  ready in 350 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+6:43:54 AM [vite] hmr update /src/App.jsx
+12:19:31 AM [vite] hmr update /src/App.jsx
+12:19:36 AM [vite] page reload index.html
+Failed to resolve import "./components/Dashboard" from "src/App.jsx". Does the file exist?
+Failed to resolve import "./components/Dashboard" from "src/App.jsx". Does the file exist?
+12:19:41 AM [vite] Internal server error: Failed to resolve import "./components/Dashboard" from "src/App.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /app/src/App.jsx:4:22
+  19 |  import StreamCapture from "./components/StreamCapture";
+  20 |  import MatchHeatmap from "./components/MatchHeatmap";
+  21 |  import Dashboard from "./components/Dashboard";
+     |                         ^
+  22 |  import { detectPlayers, extractMoneyText } from "./utils/cvProcessors";
+  23 |  import Tesseract from "tesseract.js";
+      at formatError (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44066:46)
+      at TransformContext.error (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44062:19)
+      at normalizeUrl (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41845:33)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41999:47
+      at async Promise.all (index 6)
+      at async TransformContext.transform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41915:13)
+      at async Object.transform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44356:30)
+      at async loadAndTransform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:55088:29)
+      at async viteTransformMiddleware (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:64699:32)
+12:20:38 AM [vite] Internal server error: Failed to resolve import "./components/Dashboard" from "src/App.jsx". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /app/src/App.jsx:4:22
+  19 |  import StreamCapture from "./components/StreamCapture";
+  20 |  import MatchHeatmap from "./components/MatchHeatmap";
+  21 |  import Dashboard from "./components/Dashboard";
+     |                         ^
+  22 |  import { detectPlayers, extractMoneyText } from "./utils/cvProcessors";
+  23 |  import Tesseract from "tesseract.js";
+      at formatError (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44066:46)
+      at TransformContext.error (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44062:19)
+      at normalizeUrl (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41845:33)
+      at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+      at async file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41999:47
+      at async Promise.all (index 6)
+      at async TransformContext.transform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:41915:13)
+      at async Object.transform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:44356:30)
+      at async loadAndTransform (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:55088:29)
+      at async viteTransformMiddleware (file:///app/node_modules/vite/dist/node/chunks/dep-827b23df.js:64699:32)
