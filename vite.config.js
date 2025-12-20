@@ -16,7 +16,9 @@ export default defineConfig({
     },
   },
   plugins: [
-    react(),
+    react({
+      include: "**/*.{jsx,tsx,js}",
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
